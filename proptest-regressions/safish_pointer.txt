@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7cb37e603ff1fd4e8ba87d9ae598179225d5d731eb9a7b6c11a509787e10bba9 # shrinks to input = _AllStructsAreReadFromThePointerArgs { test_value: [TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }, TestStruct { a: 0, b: 0 }] }
+cc 066ab50c200d2f6461215c672b942ac09ac9b5bb2784cefdaa51504f4015ed39 # shrinks to input = _AddIsErrorWhenSizeTooSmmallArgs { test_value: TestStruct { a: 0, b: 0 }, max_offset: 16, count: 1 }

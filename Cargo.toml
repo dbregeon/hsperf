@@ -1,0 +1,18 @@
+[package]
+name = "hsperf"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "A library to monitor java virtual machines performance data"
+repository = "https://github.com/dbregeon/hsperf"
+keywords = ["java", "linux", "hsperf"]
+categories = ["Monitoring"]
+
+[dependencies]
+nix = { version = "0.30", features = ["mman"] }
+whoami = "1.6.1"
+
+[dev-dependencies]
+proptest = "1.8.0"
+test-strategy = "0.4.3"
+parameterized = "2.0.0"

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7f111e228e3c04a288d062a23070691e7071c5be6742bb2b5e4e658a8e9f6072 # shrinks to input = _NameIsReadFromThePointerArgs { name: "", name_offset: 0 }
