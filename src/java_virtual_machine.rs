@@ -18,6 +18,10 @@ impl JavaVirtualMachine {
         JvmMonitor::map(self.pid, &self.hs_perf_data_path)
     }
 
+    pub fn pid(&self) -> u32 {
+        self.pid
+    }
+
     /// Lists the Java Virtual Machines on this host that publish their data in /tmp/hsperfdata for the current user.
     pub fn list_jvms() -> Vec<JavaVirtualMachine> {
         let mut base_path = temp_dir();
