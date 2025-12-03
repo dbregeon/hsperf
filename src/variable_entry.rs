@@ -47,21 +47,13 @@ mod tests {
         variable_entry::VariableEntry,
     };
 
-    fn pack_binary_value(name: &str, value: u8) -> Vec<u8> {
-        let mut binary_data: Vec<u8> = vec![0; (name.len() + 1) as usize];
-        binary_data[..name.len()].copy_from_slice(name.as_bytes());
-        binary_data[name.len()] = value;
-        binary_data
-    }
-
     fn given_a_pointer(name: &str) -> DataPointer {
         let value = 123;
-        let binary_data = pack_binary_value(&name, value);
 
         // Fake the pointer
         DataPointer::Byte(
             SafishPointer::new(
-                binary_data.as_ptr(),
+                &value,
                 size_of::<PerfDataEntryHeader>() + name.len() + 1,
                 Endianness::BigEndian,
             )
@@ -78,7 +70,7 @@ mod tests {
         let tested_entry = VariableEntry::new(data_pointer, variability, unit);
 
         match tested_entry.value().unwrap() {
-            EntryValue::Byte(123) => assert!(true),
+            EntryValue::Byte(x) => assert_eq!(x, 123),
             _ => assert!(false),
         }
     }
