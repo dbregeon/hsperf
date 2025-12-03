@@ -1,8 +1,8 @@
-use std::{os::raw::c_void, ptr::NonNull};
+use std::{collections::HashMap, os::raw::c_void, ptr::NonNull};
 
 use crate::{
-    ConstantEntry, errors::Error, perf_data::PerfDataEntryHeader, safish_pointer::SafishPointer,
-    variable_data_reference::VariableDataReference,
+    errors::Error, jvm_monitor::Entry, perf_data::PerfDataEntryHeader,
+    safish_pointer::SafishPointer,
 };
 
 /// /**
@@ -86,7 +86,7 @@ impl PerfDataProlog {
     pub(crate) fn read_entries(
         prolog_addr: &NonNull<c_void>,
         length: usize,
-    ) -> Result<(Vec<ConstantEntry>, Vec<VariableDataReference>), Error> {
+    ) -> Result<HashMap<String, Entry>, Error> {
         let prolog = Self::new(prolog_addr).validate()?.validate_length(length)?;
         prolog.map_entries(prolog_addr)
     }
@@ -121,29 +121,26 @@ impl PerfDataProlog {
         }
     }
 
-    fn map_entries(
-        self,
-        prolog_addr: &NonNull<c_void>,
-    ) -> Result<(Vec<ConstantEntry>, Vec<VariableDataReference>), Error> {
+    fn map_entries(self, prolog_addr: &NonNull<c_void>) -> Result<HashMap<String, Entry>, Error> {
         let entries_ptr = self.entries_ptr(&prolog_addr)?;
         let entries_count = self.num_entries as usize;
-        let mut variables: Vec<VariableDataReference> = Vec::with_capacity(entries_count);
-        let mut constants: Vec<ConstantEntry> = Vec::with_capacity(entries_count);
+        let mut entries: HashMap<String, Entry> = HashMap::with_capacity(entries_count);
         let mut offset = 0 as usize;
         for _ in 0..entries_count {
             let entry_ptr: SafishPointer<PerfDataEntryHeader> =
                 entries_ptr.clone().add(offset)?.convert()?;
             let header = entry_ptr.read();
             if header.is_variable_entry() {
-                variables.push(header.read_variable_entry(entry_ptr)?);
+                let (name, entry) = header.read_variable_entry(entry_ptr)?;
+                entries.insert(name, Entry::Variable(entry));
             } else {
-                constants.push(header.read_constant_entry(entry_ptr)?);
+                let (name, entry) = header.read_constant_entry(entry_ptr)?;
+                entries.insert(name, Entry::Constant(entry));
             };
             offset += header.entry_length() as usize;
         }
-        constants.shrink_to_fit();
-        variables.shrink_to_fit();
-        Ok((constants, variables))
+
+        Ok(entries)
     }
 
     fn entries_ptr(&self, prolog_addr: &NonNull<c_void>) -> Result<SafishPointer<u8>, Error> {

@@ -62,26 +62,23 @@ pub fn main() {
     let mut monitors: Vec<JvmMonitor> = hsperf::JavaVirtualMachine::list_jvms()
         .into_iter()
         .flat_map(|jvm| jvm.monitor())
-        .map(|monitor| monitor.only(|s| properies_of_interest.contains(s)))
+        // .map(|monitor| monitor.only(|s| properies_of_interest.contains(s)))
         .collect();
     if monitors.is_empty() {
         println!("no jvms!");
     } else {
         for monitor in monitors.iter_mut() {
             println!("For pid: {}", monitor.pid());
-            for entry in monitor.constants() {
-                println!("\t{}: {:?}", entry.name(), entry.value());
-            }
-            for entry in monitor.refresh().unwrap() {
-                println!("\t{}: {:?}", entry.name(), entry.value());
+            for (entry_name, entry) in monitor.entries() {
+                println!("\t{}: {:?}", entry_name, entry.value());
             }
         }
         for i in 0..1000 {
             for monitor in monitors.iter_mut() {
                 println!("For pid: {}, update {i}", monitor.pid());
-                let entries = &mut monitor.refresh().unwrap();
-                for entry in entries.iter() {
-                    println!("\t{}: {:?}", entry.name(), entry.value());
+                let entries = &mut monitor.entries();
+                for (entry_name, entry) in entries.iter() {
+                    println!("\t{}: {:?}", entry_name, entry.value());
                 }
             }
             sleep(2);

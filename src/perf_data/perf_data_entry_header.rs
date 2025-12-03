@@ -1,11 +1,11 @@
 use crate::{
-    ConstantEntry,
+    constant_entry::ConstantEntry,
     data_pointer::DataPointer,
     entry_value::EntryValue,
     errors::Error,
     perf_data::{DataType, Unit, Variability},
     safish_pointer::SafishPointer,
-    variable_data_reference::VariableDataReference,
+    variable_entry::VariableEntry,
 };
 
 /// /* The PerfDataEntry structure defines the fixed portion of an entry
@@ -58,7 +58,7 @@ impl PerfDataEntryHeader {
     pub(crate) fn read_variable_entry(
         &self,
         header_ptr: SafishPointer<PerfDataEntryHeader>,
-    ) -> Result<VariableDataReference, Error> {
+    ) -> Result<(String, VariableEntry), Error> {
         let entry_ptr = header_ptr.convert()?;
         let variability = self.data_variability;
         let unit = self.data_units;
@@ -69,13 +69,13 @@ impl PerfDataEntryHeader {
         } else {
             DataPointer::new_vector(&self.data_type, self.vector_length as usize, data_ptr)
         }?;
-        VariableDataReference::new(name, data_pointer, variability, unit)
+        Ok((name, VariableEntry::new(data_pointer, variability, unit)))
     }
 
     pub(crate) fn read_constant_entry(
         &self,
         header_ptr: SafishPointer<PerfDataEntryHeader>,
-    ) -> Result<ConstantEntry, Error> {
+    ) -> Result<(String, ConstantEntry), Error> {
         let entry_ptr = header_ptr.convert()?;
         let name = self.read_name(entry_ptr.clone().add(self.name_offset as usize)?)?;
         let unit = self.data_units;
@@ -86,8 +86,8 @@ impl PerfDataEntryHeader {
             DataPointer::new_vector(&self.data_type, self.vector_length as usize, data_ptr)?
         };
         let value = EntryValue::new(&data_pointer)?;
-        let reference = ConstantEntry::new(name, value, unit);
-        Ok(reference)
+        let reference = ConstantEntry::new(value, unit);
+        Ok((name, reference))
     }
 
     fn read_name(&self, ptr: SafishPointer<u8>) -> Result<String, Error> {
@@ -216,13 +216,13 @@ mod tests {
         )
         .unwrap();
 
-        let constant_entry = tested_header
+        let (entry_name, constant_entry) = tested_header
             .read_constant_entry(safish_pointer.convert().unwrap())
             .unwrap();
 
-        assert_eq!(name, constant_entry.name());
+        assert_eq!(name, entry_name);
         match constant_entry.value() {
-            EntryValue::Byte(content) => assert_eq!(*content, value),
+            EntryValue::Byte(content) => assert_eq!(content, value),
             _ => assert!(false),
         }
         assert!(matches!(constant_entry.unit(), Unit::Ticks));
@@ -250,11 +250,11 @@ mod tests {
         )
         .unwrap();
 
-        let constant_entry = tested_header
+        let (entry_name, constant_entry) = tested_header
             .read_constant_entry(safish_pointer.convert().unwrap())
             .unwrap();
 
-        assert_eq!(name, constant_entry.name());
+        assert_eq!(name, entry_name);
         match constant_entry.value() {
             EntryValue::String(content) => assert_eq!(*content, value.to_string()),
             _ => assert!(false),
@@ -316,16 +316,15 @@ mod tests {
         )
         .unwrap();
 
-        let mut variable_data_reference = tested_header
+        let (entry_name, entry) = tested_header
             .read_variable_entry(safish_pointer.convert().unwrap())
             .unwrap();
-        let entry = variable_data_reference.refresh_entry().unwrap();
 
-        assert_eq!(name, entry.name());
+        assert_eq!(name, entry_name);
         assert!(matches!(entry.unit(), Unit::Ticks));
         assert!(matches!(entry.variability(), Variability::Monotonic));
-        match entry.value() {
-            EntryValue::Byte(content) => assert_eq!(*content, value),
+        match entry.value().unwrap() {
+            EntryValue::Byte(content) => assert_eq!(content, value),
             _ => assert!(false),
         }
     }
@@ -354,14 +353,13 @@ mod tests {
         )
         .unwrap();
 
-        let mut variable_data_reference = tested_header
+        let (entry_name, entry) = tested_header
             .read_variable_entry(safish_pointer.convert().unwrap())
             .unwrap();
-        let entry = variable_data_reference.refresh_entry().unwrap();
 
-        assert_eq!(name, entry.name());
-        match entry.value() {
-            EntryValue::String(content) => assert_eq!(*content, value.to_string()),
+        assert_eq!(name, entry_name);
+        match entry.value().unwrap() {
+            EntryValue::String(content) => assert_eq!(content, value.to_string()),
             _ => assert!(false),
         }
         assert!(matches!(entry.unit(), Unit::Ticks));

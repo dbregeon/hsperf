@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     ffi::c_void,
     fs::File,
     num::NonZero,
@@ -7,19 +8,41 @@ use std::{
     ptr::NonNull,
 };
 
-use nix::sys::mman::{MapFlags, MsFlags, ProtFlags, mmap, msync, munmap};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap, munmap};
 
 use crate::{
-    ConstantEntry, VariableEntry, errors::Error, perf_data::PerfDataProlog,
-    variable_data_reference::VariableDataReference,
+    EntryValue,
+    constant_entry::ConstantEntry,
+    errors::Error,
+    perf_data::{PerfDataProlog, Unit},
+    variable_entry::VariableEntry,
 };
 
+pub enum Entry {
+    Constant(ConstantEntry),
+    Variable(VariableEntry),
+}
+
+impl Entry {
+    pub fn value(&self) -> Result<EntryValue, Error> {
+        match self {
+            Entry::Constant(entry) => Ok(entry.value()),
+            Entry::Variable(entry) => entry.value(),
+        }
+    }
+
+    pub fn unit(&self) -> Unit {
+        match self {
+            Entry::Constant(entry) => entry.unit(),
+            Entry::Variable(entry) => entry.unit(),
+        }
+    }
+}
 pub struct JvmMonitor {
     pid: u32,
     prolog_addr: NonNull<c_void>,
     length: usize,
-    constants: Vec<ConstantEntry>,
-    variables: Vec<VariableDataReference>,
+    entries: HashMap<String, Entry>,
 }
 
 impl JvmMonitor {
@@ -28,18 +51,9 @@ impl JvmMonitor {
         self.pid
     }
 
-    /// Returns the constant hsperfdata values presented by the JVMM
-    pub fn constants(&self) -> &Vec<ConstantEntry> {
-        &self.constants
-    }
-
-    /// Refreshes and returns the variable entry values from the JVM.
-    pub fn refresh(&mut self) -> Result<Vec<&VariableEntry>, Error> {
-        unsafe {
-            msync(self.prolog_addr, self.length, MsFlags::MS_SYNC)
-                .map_err(|e| Error::FailedToSync(e))?
-        };
-        self.refresh_entries()
+    /// Returns the  hsperfdata entries presented by the JVMM
+    pub fn entries(&self) -> &HashMap<String, Entry> {
+        &self.entries
     }
 
     /// Refines the JVM monitor so that it only keep the variable entries matching the filter.
@@ -47,7 +61,7 @@ impl JvmMonitor {
     where
         P: FnMut(&str) -> bool,
     {
-        self.variables.retain(|data| filter(data.name()));
+        self.entries.retain(|key, _value| filter(key));
         self
     }
 
@@ -65,23 +79,14 @@ impl JvmMonitor {
 
         let prolog_addr = Self::map_file_to_memory(f, length)?;
 
-        let (constants, variables) = PerfDataProlog::read_entries(&prolog_addr, length)?;
+        let entries = PerfDataProlog::read_entries(&prolog_addr, length)?;
 
         Ok(Self {
             pid,
             prolog_addr,
             length,
-            constants,
-            variables,
+            entries,
         })
-    }
-
-    fn refresh_entries(&mut self) -> Result<Vec<&VariableEntry>, Error> {
-        let mut result = Vec::with_capacity(self.variables.len());
-        for reference in self.variables.iter_mut() {
-            result.push(reference.refresh_entry()?);
-        }
-        Ok(result)
     }
 
     fn map_file_to_memory(f: File, length: usize) -> Result<NonNull<c_void>, Error> {

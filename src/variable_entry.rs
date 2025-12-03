@@ -1,47 +1,29 @@
 use crate::{
     EntryValue,
+    data_pointer::DataPointer,
+    errors::Error,
     perf_data::{Unit, Variability},
 };
 
 /// Entry read from the Hotspot Data that is characterized as changing in either a Monotonic or Variable way
 pub struct VariableEntry {
-    name: String,
-    value: EntryValue,
+    data_pointer: DataPointer,
     variability: Variability,
     unit: Unit,
 }
 
 impl VariableEntry {
-    pub(crate) fn new(
-        name: String,
-        value: EntryValue,
-        variability: Variability,
-        unit: Unit,
-    ) -> Self {
+    pub(crate) fn new(data_pointer: DataPointer, variability: Variability, unit: Unit) -> Self {
         Self {
-            name,
-            value,
+            data_pointer,
             variability,
             unit,
         }
     }
 
-    /// The name of the entry as published by the JVM.
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
-    /// The last value read for the entry.
-    pub fn value(&self) -> &EntryValue {
-        &self.value
-    }
-
-    /// Updates the value when the new_value is different
-    /// returns None when the new_value is the same as the existing value,
-    /// Some of a reference to itself when the value was updated.
-    pub fn refresh_value(&mut self, new_value: EntryValue) -> &Self {
-        self.value = new_value;
-        self
+    /// The value read for the entry.
+    pub fn value(&self) -> Result<EntryValue, Error> {
+        self.data_pointer.read_value()
     }
 
     /// The variability of the entry as published by the JVM
@@ -59,31 +41,44 @@ impl VariableEntry {
 mod tests {
     use crate::{
         EntryValue,
-        perf_data::{Unit, Variability},
+        data_pointer::DataPointer,
+        perf_data::{Endianness, PerfDataEntryHeader, Unit, Variability},
+        safish_pointer::SafishPointer,
         variable_entry::VariableEntry,
     };
 
-    #[test]
-    fn name_returns_the_name() {
-        let name = "test1".to_string();
-        let value = EntryValue::Int(1234);
-        let variability = Variability::Monotonic;
-        let unit = Unit::Hertz;
-        let tested_entry = VariableEntry::new(name.clone(), value, variability, unit);
+    fn pack_binary_value(name: &str, value: u8) -> Vec<u8> {
+        let mut binary_data: Vec<u8> = vec![0; (name.len() + 1) as usize];
+        binary_data[..name.len()].copy_from_slice(name.as_bytes());
+        binary_data[name.len()] = value;
+        binary_data
+    }
 
-        assert_eq!(name, *tested_entry.name());
+    fn given_a_pointer(name: &str) -> DataPointer {
+        let value = 123;
+        let binary_data = pack_binary_value(&name, value);
+
+        // Fake the pointer
+        DataPointer::Byte(
+            SafishPointer::new(
+                binary_data.as_ptr(),
+                size_of::<PerfDataEntryHeader>() + name.len() + 1,
+                Endianness::BigEndian,
+            )
+            .unwrap(),
+        )
     }
 
     #[test]
     fn value_returns_the_value() {
         let name = "test1".to_string();
-        let value = EntryValue::Int(1234);
+        let data_pointer = given_a_pointer(&name);
         let variability = Variability::Monotonic;
         let unit = Unit::Hertz;
-        let tested_entry = VariableEntry::new(name, value, variability, unit);
+        let tested_entry = VariableEntry::new(data_pointer, variability, unit);
 
-        match tested_entry.value {
-            EntryValue::Int(1234) => assert!(true),
+        match tested_entry.value().unwrap() {
+            EntryValue::Byte(123) => assert!(true),
             _ => assert!(false),
         }
     }
@@ -91,10 +86,10 @@ mod tests {
     #[test]
     fn variability_returns_the_variability() {
         let name = "test1".to_string();
-        let value = EntryValue::Int(1234);
+        let data_pointer = given_a_pointer(&name);
         let variability = Variability::Monotonic;
         let unit = Unit::Hertz;
-        let tested_entry = VariableEntry::new(name, value, variability, unit);
+        let tested_entry = VariableEntry::new(data_pointer, variability, unit);
 
         assert_eq!(variability, tested_entry.variability());
     }
@@ -102,27 +97,11 @@ mod tests {
     #[test]
     fn unit_returns_the_unit() {
         let name = "test1".to_string();
-        let value = EntryValue::Int(1234);
+        let data_pointer = given_a_pointer(&name);
         let variability = Variability::Monotonic;
         let unit = Unit::Hertz;
-        let tested_entry = VariableEntry::new(name, value, variability, unit);
+        let tested_entry = VariableEntry::new(data_pointer, variability, unit);
 
         assert_eq!(unit, tested_entry.unit());
-    }
-
-    #[test]
-    fn refresh_value_is_self_when_changed() {
-        let name = "test1".to_string();
-        let value = EntryValue::Int(1234);
-        let new_value = EntryValue::Int(1235);
-        let variability = Variability::Monotonic;
-        let unit = Unit::Hertz;
-        let mut tested_entry = VariableEntry::new(name, value, variability, unit);
-
-        let result = tested_entry.refresh_value(new_value);
-        match result.value {
-            EntryValue::Int(1235) => assert!(true),
-            _ => assert!(false),
-        }
     }
 }

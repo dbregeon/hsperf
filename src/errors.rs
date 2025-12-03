@@ -16,4 +16,5 @@ pub enum Error {
     WontBeAbleToRead,
     OffsetOutOfBounds,
     NotAlignedForCOnversion,
+    MissingEntry,
 }

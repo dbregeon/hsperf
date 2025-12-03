@@ -13,6 +13,6 @@ nix = { version = "0.30", features = ["mman"] }
 whoami = "1.6.1"
 
 [dev-dependencies]
-proptest = "1.8.0"
+proptest = "1.9.0"
 test-strategy = "0.4.3"
-parameterized = "2.0.0"
+parameterized = "2.1.0"

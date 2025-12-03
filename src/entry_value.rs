@@ -1,7 +1,7 @@
 use crate::{data_pointer::DataPointer, errors::Error};
 
 /// Enumeration to hold the different types of values read from the hsperfdata file.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EntryValue {
     Boolean(bool),
     Byte(u8),
